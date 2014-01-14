@@ -1,0 +1,18 @@
+PODS:
+  - LEColorPicker (1.0.2)
+  - SDWebImage (3.5.2):
+    - SDWebImage/Core
+  - SDWebImage/Core (3.5.2)
+  - Underscore.m (0.2.1)
+
+DEPENDENCIES:
+  - LEColorPicker (~> 1.0.2)
+  - SDWebImage (~> 3.5.2)
+  - Underscore.m (~> 0.2.1)
+
+SPEC CHECKSUMS:
+  LEColorPicker: 8d5e5b0ab6e8af8ff1c184ac9e24f4f707f7573c
+  SDWebImage: fe7ce01ae4e0a884d168f59c9dd82d35baf8429e
+  Underscore.m: 593ea54a19d3cc4439387a83d36eb7ba6ffd1707
+
+COCOAPODS: 0.29.0
