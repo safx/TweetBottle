@@ -11,7 +11,6 @@
 
 @interface TWBTweetBottleViewController () <UICollisionBehaviorDelegate>
 @property ACAccountStore* accountStore;
-@property NSTimer* timer;
 @property NSArray* queue;
 @property NSString* sinceID;
 @property NSUInteger count;
@@ -58,7 +57,7 @@
     [_animator addBehavior:_collision];
     [_animator addBehavior:_dynamicProperties];
     
-    _timer = [NSTimer scheduledTimerWithTimeInterval:6 target:self selector:@selector(onTimer) userInfo:nil repeats:YES];
+    [NSTimer scheduledTimerWithTimeInterval:6 target:self selector:@selector(onTimer) userInfo:nil repeats:YES];
 }
 
 - (void)didReceiveMemoryWarning
@@ -100,8 +99,9 @@
 
         NSURL* url = [NSURL URLWithString:urlstr];
 
-        UIView* box = [TWBTweetBoxView.alloc initWithFrame:rect tweet:tweet profileImageURL:url];
+        UIControl* box = [TWBTweetBoxView.alloc initWithFrame:rect tweet:tweet profileImageURL:url];
         box.transform = CGAffineTransformMakeRotation(rand() % 180);
+        [box addTarget:self action:@selector(removeItem:) forControlEvents:UIControlEventTouchDown];
         
         [self.view addSubview:box];
         [_gravity addItem:box];

@@ -8,7 +8,7 @@
 
 #import <UIKit/UIKit.h>
 
-@interface TWBTweetBoxView : UIView
+@interface TWBTweetBoxView : UIControl
 @property (readonly) NSString* tweet;
 @property (readonly) NSURL* profileImageURL;
 - (id)initWithFrame:(CGRect)frame tweet:(NSString*)tweet profileImageURL:(NSURL*)profileImageURL;
