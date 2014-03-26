@@ -37,7 +37,7 @@
                                                                   LEColorPicker* picker = LEColorPicker.alloc.init;
                                                                   LEColorScheme* scheme = [picker colorSchemeFromImage:image];
                                                                   self.backgroundColor = scheme.backgroundColor;
-                                                                  self.tintColor = scheme.primaryTextColor;
+                                                                  self.tintColor = UIColor.redColor; //scheme.primaryTextColor;
                                                                   [self setNeedsDisplay];
                                                               }
                                                           }];
@@ -52,7 +52,7 @@
     CGRect imageRect = CGRectMake(5, 5, 20, 20);
     [self.profileImage drawInRect:imageRect];
     
-    UIFont* font = [UIFont systemFontOfSize:8];
+    UIFont* font = [UIFont systemFontOfSize:12];
     NSMutableParagraphStyle* style = NSParagraphStyle.defaultParagraphStyle.mutableCopy;
     style.lineBreakMode = NSLineBreakByCharWrapping;
     style.alignment = NSTextAlignmentLeft;

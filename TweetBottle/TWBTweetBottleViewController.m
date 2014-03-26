@@ -14,12 +14,16 @@
 @property NSArray* queue;
 @property NSString* sinceID;
 @property NSUInteger count;
+@property NSOperationQueue* operationQueue;
+@property NSArray* topicIDs;
 
 @property UIDynamicAnimator* animator;
 @property UIGravityBehavior* gravity;
 @property UICollisionBehavior* collision;
 @property UIDynamicItemBehavior* dynamicProperties;
 @property BOOL hiddenBottomBoundary;
+
+@property NSString* accessToken;
 @end
 
 @implementation TWBTweetBottleViewController
@@ -57,7 +61,43 @@
     [_animator addBehavior:_collision];
     [_animator addBehavior:_dynamicProperties];
     
-    [NSTimer scheduledTimerWithTimeInterval:6 target:self selector:@selector(onTimer) userInfo:nil repeats:YES];
+    // Typetalk OAuth
+    NSString *clientId = @"<Your Client ID>";
+    NSString *clientSecret = @"<Your Client Secret>";
+    
+    _operationQueue = [[NSOperationQueue alloc] init];
+    NSURL *url = [NSURL URLWithString:@"https://typetalk.in/oauth2/access_token"];
+    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
+    req.HTTPMethod = @"POST";
+    req.HTTPBody = [[NSString stringWithFormat:@"client_id=%@&client_secret=%@&grant_type=client_credentials&scope=my,topic.read", clientId, clientSecret] dataUsingEncoding:NSUTF8StringEncoding];
+
+    [NSURLConnection sendAsynchronousRequest:req queue:_operationQueue completionHandler:^(NSURLResponse *response, NSData *data, NSError *error) {
+        NSError* err = nil;
+        NSDictionary* json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&err];
+        if (!err) {
+            _accessToken = json[@"access_token"];
+            
+            NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"https://typetalk.in/api/v1/topics"]];
+            NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
+            [req setValue:[NSString stringWithFormat:@"Bearer %@", _accessToken] forHTTPHeaderField:@"Authorization"];
+            [NSURLConnection sendAsynchronousRequest:req queue:_operationQueue completionHandler:^(NSURLResponse *response, NSData *data, NSError *error) {
+                NSDictionary* jsonData = [NSJSONSerialization
+                                          JSONObjectWithData:data
+                                          options:NSJSONReadingAllowFragments error:&error];
+                if (error) {
+                    NSLog(@"%@", error);
+                    return;
+                }
+                
+                if (jsonData) {
+                    _topicIDs = [jsonData valueForKeyPath:@"topics.topic.id"];
+                    dispatch_after(DISPATCH_TIME_NOW, dispatch_get_main_queue(), ^(void){
+                        [NSTimer scheduledTimerWithTimeInterval:6 target:self selector:@selector(onTimer) userInfo:nil repeats:YES];
+                    });
+                }
+            }];
+        }
+    }];
 }
 
 - (void)didReceiveMemoryWarning
@@ -94,8 +134,8 @@
         CGFloat w = s.width;
         CGRect rect = CGRectMake(rand() % ((int)w-TW), y, TW, TH);
         
-        NSString* tweet  = [dic valueForKeyPath:@"text"];
-        NSString* urlstr = [dic valueForKeyPath:@"user.profile_image_url"];
+        NSString* tweet  = [dic valueForKeyPath:@"message"];
+        NSString* urlstr = [dic valueForKeyPath:@"account.imageUrl"];
 
         NSURL* url = [NSURL URLWithString:urlstr];
 
@@ -137,65 +177,34 @@
 #pragma mark - Social Framework
 
 - (void)fetchTimeline {
-    ACAccountType* accountType = [self.accountStore accountTypeWithAccountTypeIdentifier:ACAccountTypeIdentifierTwitter];
-    
-    [self.accountStore requestAccessToAccountsWithType:accountType
-                                           options:NULL
-                                        completion:^(BOOL granted, NSError* error) {
-         if (error) {
-             NSLog(@"%@", error);
-             return;
-         }
-         
-         NSArray* accounts = [self.accountStore accountsWithAccountType:accountType];
-         if (accounts.count == 0) return;
-         
-         NSURL* url = [NSURL URLWithString:@"https://api.twitter.com/1.1/statuses/home_timeline.json"];
-         NSDictionary* params = @{@"screen_name" : [accounts.firstObject username],
-                                  @"count" : @"60" };
-         if (self.sinceID) {
-             params = Underscore.extend(params, @{ @"since_id": self.sinceID });
-         }
-                                            
-         SLRequest *request = [SLRequest requestForServiceType:SLServiceTypeTwitter
-                                                 requestMethod:SLRequestMethodGET
-                                                           URL:url
-                                                    parameters:params];
-         
-         request.account = accounts.firstObject;
-         [request performRequestWithHandler:^(NSData* responseData,
-                                              NSHTTPURLResponse* urlResponse,
-                                              NSError* error) {
-             if (error) {
-                 NSLog(@"%@, %@", urlResponse, error);
-                 return;
-             }
-             
-             if (200 <= urlResponse.statusCode && urlResponse.statusCode < 300) {
-                 NSError* e = nil;
-                 NSArray* jsonData = [NSJSONSerialization
-                                      JSONObjectWithData:responseData
-                                      options:NSJSONReadingAllowFragments error:&e];
-                 if (e) {
-                     NSLog(@"%@", e);
-                     return;
-                 }
-
-                 if (jsonData.count > 0) {
-                     self.sinceID = [jsonData.firstObject valueForKeyPath:@"id_str"];
-                     @synchronized(self) {
-                         self.queue = Underscore.flatten(@[jsonData, self.queue]);
-                     }
-                     
-                     dispatch_after(DISPATCH_TIME_NOW, dispatch_get_main_queue(), ^(void){
-                         [self addTweetsIfNeeded];
-                     });
-                 }
-             } else {
-                 NSLog(@"%@", urlResponse);
-             }
-         }];
-     }];
+    if (_accessToken) {
+        for (NSString* i in _topicIDs) {
+            NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"https://typetalk.in/api/v1/topics/%@", i]];
+            NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
+            // TODO: add parameter "from"
+            [req setValue:[NSString stringWithFormat:@"Bearer %@", _accessToken] forHTTPHeaderField:@"Authorization"];
+            [NSURLConnection sendAsynchronousRequest:req queue:_operationQueue completionHandler:^(NSURLResponse *response, NSData *data, NSError *error) {
+                NSDictionary* jsonData = [NSJSONSerialization
+                                          JSONObjectWithData:data
+                                          options:NSJSONReadingAllowFragments error:&error];
+                if (error) {
+                    NSLog(@"%@", error);
+                    return;
+                }
+                
+                if (jsonData) {
+                    NSArray* array = [jsonData valueForKey:@"posts"];
+                    @synchronized(self) {
+                        self.queue = Underscore.flatten(@[array, self.queue]);
+                    }
+                    
+                    dispatch_after(DISPATCH_TIME_NOW, dispatch_get_main_queue(), ^(void){
+                        [self addTweetsIfNeeded];
+                    });
+                }
+            }];
+        }
+    }
 }
 
 #pragma mark - UICollisionBehaviorDelegate
